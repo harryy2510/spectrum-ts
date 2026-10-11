@@ -8,6 +8,7 @@ import {
 import { configSchema } from "@/types";
 
 const STREAM_GUIDANCE = /webhooks|gRPC transport/;
+const PLAINTEXT_GUIDANCE = /plaintext http:\/\//;
 
 const handleFor = (transport: "grpc" | "http"): IMessageTransportHandle =>
   createHandle(transport, {
@@ -43,6 +44,31 @@ describe("iMessage transport factory", () => {
     expect(grpc.transport).toBe("grpc");
     await http.client.close();
     await grpc.client.close();
+  });
+});
+
+describe("iMessage http address check", () => {
+  it.each([
+    "http://imessage.example.com",
+    "HTTP://imessage.example.com:8080",
+    "http://127.example.com",
+  ])("refuses plaintext http to %s", (address) => {
+    expect(() => createHandle("http", { address, token: "token" })).toThrow(
+      PLAINTEXT_GUIDANCE
+    );
+  });
+
+  it.each([
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://[::1]:8080",
+    "https://imessage.example.com",
+    "imessage.example.com",
+  ])("allows %s", async (address) => {
+    const handle = createHandle("http", { address, token: "token" });
+
+    expect(handle.transport).toBe("http");
+    await handle.client.close();
   });
 });
 

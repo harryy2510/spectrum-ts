@@ -48,7 +48,7 @@ can register both when it needs both transports.
     imessage.config({
       transport: "http",
       clients: [
-        { address: "https://imessage-middleware.example.com", token: "your-token", phone: "+15551111111" },
+        { address: "https://imessage-middleware.example.com", server: "your-instance-id", token: "your-token", phone: "+15551111111" },
       ],
     });
     ```

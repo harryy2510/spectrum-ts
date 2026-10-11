@@ -19,14 +19,32 @@ export type IMessageTransportHandle =
   | { client: StreamingClient; transport?: "grpc" }
   | { client: UnaryClient; transport: "http" };
 
+const LOOPBACK_IPV4 = /^127(?:\.\d{1,3}){3}$/;
+const LOCAL_HOSTNAMES = new Set(["localhost", "[::1]"]);
+
+const rejectPlaintextAddress = (address: string): void => {
+  if (!address.toLowerCase().startsWith("http://")) {
+    return;
+  }
+  const { hostname } = new URL(address);
+  if (LOCAL_HOSTNAMES.has(hostname) || LOOPBACK_IPV4.test(hostname)) {
+    return;
+  }
+  throw new Error(
+    `The iMessage HTTP transport will not send credentials over plaintext http:// to ${hostname}. Use https://.`
+  );
+};
+
 export const createHandle = (
   transport: IMessageTransport,
   options: ClientOptions
 ): IMessageTransportHandle => {
   const defaults = { autoIdempotency: true, retry: true, tls: true } as const;
-  return transport === "http"
-    ? { client: createHttpClient({ ...defaults, ...options }), transport }
-    : { client: createGrpcClient({ ...defaults, ...options }), transport };
+  if (transport === "http") {
+    rejectPlaintextAddress(options.address);
+    return { client: createHttpClient({ ...defaults, ...options }), transport };
+  }
+  return { client: createGrpcClient({ ...defaults, ...options }), transport };
 };
 
 export const requireStreamingClient = (

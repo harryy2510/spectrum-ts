@@ -28,8 +28,6 @@ const FORCE_REFRESH_MIN_INTERVAL_MS = 5000;
 
 const authLog = createLogger("spectrum.imessage.auth");
 
-// Cloud lines resolve to gRPC hosts only, so HTTP needs a middleware named
-// explicitly; the shared gateway answers JSON with a 415.
 const httpMiddleware = (transport: IMessageTransport): string | undefined => {
   if (transport !== "http") {
     return;
