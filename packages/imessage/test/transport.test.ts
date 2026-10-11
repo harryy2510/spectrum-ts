@@ -1,23 +1,19 @@
 import { UnsupportedError } from "@spectrum-ts/core";
 import { describe, expect, it } from "vitest";
 import {
+  createHandle,
   type IMessageTransportHandle,
-  loadClientFactory,
   requireStreamingClient,
 } from "@/transport";
 import { configSchema } from "@/types";
 
 const STREAM_GUIDANCE = /webhooks|gRPC transport/;
 
-const handleFor = async (
-  transport: "grpc" | "http"
-): Promise<IMessageTransportHandle> => {
-  const factory = await loadClientFactory(transport);
-  return factory({
+const handleFor = (transport: "grpc" | "http"): IMessageTransportHandle =>
+  createHandle(transport, {
     address: transport === "http" ? "http://localhost:8080" : "localhost:50051",
     token: "token",
   });
-};
 
 describe("iMessage transport config", () => {
   it("leaves the transport unset by default", () => {
@@ -40,8 +36,8 @@ describe("iMessage transport config", () => {
 
 describe("iMessage transport factory", () => {
   it("tags the handle it builds", async () => {
-    const http = await handleFor("http");
-    const grpc = await handleFor("grpc");
+    const http = handleFor("http");
+    const grpc = handleFor("grpc");
 
     expect(http.transport).toBe("http");
     expect(grpc.transport).toBe("grpc");
@@ -52,14 +48,14 @@ describe("iMessage transport factory", () => {
 
 describe("iMessage streaming capability", () => {
   it("hands back the client of a grpc handle", async () => {
-    const handle = await handleFor("grpc");
+    const handle = handleFor("grpc");
 
     expect(requireStreamingClient(handle)).toBe(handle.client);
     await handle.client.close();
   });
 
   it("explains why an http handle cannot stream", async () => {
-    const handle = await handleFor("http");
+    const handle = handleFor("http");
 
     expect(() => requireStreamingClient(handle)).toThrow(UnsupportedError);
     expect(() => requireStreamingClient(handle)).toThrow(STREAM_GUIDANCE);

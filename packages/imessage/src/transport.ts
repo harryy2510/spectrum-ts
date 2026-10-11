@@ -1,7 +1,11 @@
-import type { AdvancedIMessage as StreamingClient } from "@photon-ai/advanced-imessage/grpc";
-import type {
-  ClientOptions,
-  AdvancedIMessage as UnaryClient,
+import {
+  createGrpcClient,
+  type AdvancedIMessage as StreamingClient,
+} from "@photon-ai/advanced-imessage/grpc";
+import {
+  type ClientOptions,
+  createHttpClient,
+  type AdvancedIMessage as UnaryClient,
 } from "@photon-ai/advanced-imessage/http";
 import { UnsupportedError } from "@spectrum-ts/core";
 
@@ -15,28 +19,14 @@ export type IMessageTransportHandle =
   | { client: StreamingClient; transport?: "grpc" }
   | { client: UnaryClient; transport: "http" };
 
-export const loadClientFactory = async (
-  transport: IMessageTransport
-): Promise<(options: ClientOptions) => IMessageTransportHandle> => {
+export const createHandle = (
+  transport: IMessageTransport,
+  options: ClientOptions
+): IMessageTransportHandle => {
   const defaults = { autoIdempotency: true, retry: true, tls: true } as const;
-
-  if (transport === "http") {
-    const { createHttpClient } = await import(
-      "@photon-ai/advanced-imessage/http"
-    );
-    return (options) => ({
-      client: createHttpClient({ ...defaults, ...options }),
-      transport: "http",
-    });
-  }
-
-  const { createGrpcClient } = await import(
-    "@photon-ai/advanced-imessage/grpc"
-  );
-  return (options) => ({
-    client: createGrpcClient({ ...defaults, ...options }),
-    transport: "grpc",
-  });
+  return transport === "http"
+    ? { client: createHttpClient({ ...defaults, ...options }), transport }
+    : { client: createGrpcClient({ ...defaults, ...options }), transport };
 };
 
 export const requireStreamingClient = (

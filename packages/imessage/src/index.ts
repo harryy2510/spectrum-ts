@@ -108,7 +108,7 @@ import {
   getProfileSyncGate,
   registerProfileSyncGate,
 } from "./remote/profile-sync-gate";
-import { DEFAULT_IMESSAGE_TRANSPORT, loadClientFactory } from "./transport";
+import { createHandle, DEFAULT_IMESSAGE_TRANSPORT } from "./transport";
 import {
   configSchema,
   type IMessageClient,
@@ -498,12 +498,14 @@ const definedIMessage = defineCorePlatform(IMESSAGE_PLATFORM, {
         const entries = Array.isArray(config.clients)
           ? config.clients
           : [config.clients];
-        const factory = await loadClientFactory(
-          config.transport ?? DEFAULT_IMESSAGE_TRANSPORT
-        );
+        const transport = config.transport ?? DEFAULT_IMESSAGE_TRANSPORT;
         clients = entries.map((e) => ({
           phone: e.phone,
-          ...factory({ address: e.address, token: e.token }),
+          ...createHandle(transport, {
+            address: e.address,
+            server: e.server,
+            token: e.token,
+          }),
         }));
       } else if (projectId && projectSecret) {
         clients = await createCloudClients(

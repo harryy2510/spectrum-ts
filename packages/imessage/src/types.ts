@@ -19,6 +19,7 @@ const clientEntry = z.object({
   address: z.string(),
   token: z.string(),
   phone: z.string(),
+  server: z.string().optional(),
 });
 
 export const configSchema = z.strictObject({

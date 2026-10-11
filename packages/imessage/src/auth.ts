@@ -15,9 +15,9 @@ import {
   setLineId,
 } from "./lines";
 import {
+  createHandle,
   DEFAULT_IMESSAGE_TRANSPORT,
   type IMessageTransport,
-  loadClientFactory,
 } from "./transport";
 import { type RemoteClient, SHARED_PHONE } from "./types";
 
@@ -27,6 +27,21 @@ import { type RemoteClient, SHARED_PHONE } from "./types";
 const FORCE_REFRESH_MIN_INTERVAL_MS = 5000;
 
 const authLog = createLogger("spectrum.imessage.auth");
+
+// Cloud lines resolve to gRPC hosts only, so HTTP needs a middleware named
+// explicitly; the shared gateway answers JSON with a 415.
+const httpMiddleware = (transport: IMessageTransport): string | undefined => {
+  if (transport !== "http") {
+    return;
+  }
+  const address = process.env.SPECTRUM_IMESSAGE_HTTP_ADDRESS;
+  if (!address) {
+    throw new Error(
+      "The iMessage HTTP transport needs SPECTRUM_IMESSAGE_HTTP_ADDRESS, the address of an Advanced iMessage HTTP middleware."
+    );
+  }
+  return address;
+};
 
 interface CloudAuth {
   dispose: () => void;
@@ -44,7 +59,7 @@ export async function createCloudClients(
   projectSecret: string,
   transport: IMessageTransport = DEFAULT_IMESSAGE_TRANSPORT
 ): Promise<RemoteClient[]> {
-  const factory = await loadClientFactory(transport);
+  const middleware = httpMiddleware(transport);
   let tokenData = await cloud.issueImessageTokens(projectId, projectSecret);
   let lastRefreshAt = Date.now();
 
@@ -63,9 +78,10 @@ export async function createCloudClients(
     initialToken: string
   ): RemoteClient => ({
     phone,
-    ...factory({
-      address: `${instanceId}.imsg.photon.codes:443`,
-      server: instanceId,
+    ...createHandle(transport, {
+      ...(middleware
+        ? { address: middleware, server: instanceId }
+        : { address: `${instanceId}.imsg.photon.codes:443` }),
       token: async () => {
         await renewal.refreshIfNeeded();
         // Narrowed, not asserted: a refresh can in principle come back shared
@@ -215,11 +231,12 @@ export async function createCloudClients(
 
   if (tokenData.type === "shared") {
     const address =
+      middleware ??
       process.env.SPECTRUM_IMESSAGE_ADDRESS ??
       "imessage.spectrum.photon.codes:443";
     entries.push({
       phone: SHARED_PHONE,
-      ...factory({
+      ...createHandle(transport, {
         address,
         token: async () => {
           await renewal.refreshIfNeeded();
